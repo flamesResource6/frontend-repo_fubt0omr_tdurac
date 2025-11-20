@@ -1,71 +1,93 @@
+import { useEffect, useMemo, useState } from 'react'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
+import Filters from './components/Filters'
+import ProductCard from './components/ProductCard'
+
 function App() {
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const [gender, setGender] = useState('')
+  const [category, setCategory] = useState('')
+  const [query, setQuery] = useState('')
+
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+  const fetchProducts = async (params = {}) => {
+    setLoading(true)
+    setError('')
+    try {
+      const usp = new URLSearchParams()
+      if (params.gender) usp.set('gender', params.gender)
+      if (params.category) usp.set('category', params.category)
+      if (params.q) usp.set('q', params.q)
+      const res = await fetch(`${baseUrl}/api/products?${usp.toString()}`)
+      if (!res.ok) throw new Error('Failed to load products')
+      const data = await res.json()
+      setProducts(data)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProducts({ gender, category, q: query })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender, category])
+
+  const onSearch = (q) => {
+    setQuery(q)
+    fetchProducts({ gender, category, q })
+  }
+
+  const emptyState = !loading && products.length === 0
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <Navbar onSearch={onSearch} />
+      <Hero />
 
-      <div className="relative min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full">
-          {/* Header with Flames icon */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <img
-                src="/flame-icon.svg"
-                alt="Flames"
-                className="w-24 h-24 drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-              />
-            </div>
+      <section id="catalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex items-end justify-between gap-4 mb-6">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Explore the collection</h2>
+          <Filters selectedGender={gender || 'all'} onGenderChange={setGender} selectedCategory={category || 'all'} onCategoryChange={setCategory} />
+        </div>
 
-            <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
-              Flames Blue
-            </h1>
-
-            <p className="text-xl text-blue-200 mb-6">
-              Build applications through conversation
-            </p>
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_,i)=> (
+              <div key={i} className="animate-pulse h-72 rounded-2xl bg-slate-800/50 border border-slate-700/40" />
+            ))}
           </div>
-
-          {/* Instructions */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 shadow-xl mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                1
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Describe your idea</h3>
-                <p className="text-blue-200/80 text-sm">Use the chat panel on the left to tell the AI what you want to build</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Watch it build</h3>
-                <p className="text-blue-200/80 text-sm">Your app will appear in this preview as the AI generates the code</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Refine and iterate</h3>
-                <p className="text-blue-200/80 text-sm">Continue the conversation to add features and make changes</p>
-              </div>
-            </div>
+        ) : error ? (
+          <div className="bg-red-500/10 text-red-300 border border-red-500/30 rounded-xl p-4">
+            {error}
           </div>
+        ) : emptyState ? (
+          <div className="text-slate-300">No products found. Try adjusting filters.</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+            {products.map((p, idx) => (
+              <ProductCard key={idx} product={p} />
+            ))}
+          </div>
+        )}
+      </section>
 
-          {/* Footer */}
-          <div className="text-center">
-            <p className="text-sm text-blue-300/60">
-              No coding required • Just describe what you want
-            </p>
+      <footer className="mt-20 border-t border-slate-800/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-slate-400 text-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>© {new Date().getFullYear()} AeroFlex. All rights reserved.</div>
+          <div className="flex gap-4">
+            <a href="#" className="hover:text-white">Instagram</a>
+            <a href="#" className="hover:text-white">Twitter</a>
+            <a href="#" className="hover:text-white">Support</a>
           </div>
         </div>
-      </div>
+      </footer>
     </div>
   )
 }
